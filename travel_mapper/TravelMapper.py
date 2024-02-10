@@ -10,6 +10,8 @@ from pathlib import Path
 from travel_mapper.user_interface.constants import VALID_MESSAGE
 import os
 
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def load_secrets():
     load_dotenv()
@@ -18,28 +20,31 @@ def load_secrets():
 
     open_ai_key = os.getenv("OPENAI_API_KEY")
     google_maps_key = os.getenv("GOOGLE_MAPS_API_KEY")
-    google_palm_key = os.getenv("GOOGLE_PALM_API_KEY")
+    google_ai_key = os.getenv("GOOGLE_AI_API_KEY")
 
     return {
         "OPENAI_API_KEY": open_ai_key,
         "GOOGLE_MAPS_API_KEY": google_maps_key,
-        "GOOGLE_PALM_API_KEY": google_palm_key,
+        "GOOGLE_AI_API_KEY": google_ai_key,
     }
 
 
 def assert_secrets(secrets_dict):
     assert secrets_dict["OPENAI_API_KEY"] is not None
     assert secrets_dict["GOOGLE_MAPS_API_KEY"] is not None
-    assert secrets_dict["GOOGLE_PALM_API_KEY"] is not None
+    assert secrets_dict["GOOGLE_AI_API_KEY"] is not None
 
 
 class TravelMapperBase(object):
     def __init__(
-        self, openai_api_key, google_palm_api_key, google_maps_key, verbose=False
+        self, openai_api_key, google_ai_api_key, google_maps_key, verbose=False
     ):
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+
         self.travel_agent = Agent(
             open_ai_api_key=openai_api_key,
-            google_palm_api_key=google_palm_api_key,
+            google_ai_api_key=google_ai_api_key,
             debug=verbose,
         )
         self.route_finder = RouteFinder(google_maps_api_key=google_maps_key)
@@ -67,13 +72,22 @@ class TravelMapperForUI(TravelMapperBase):
         -------
 
         """
-        current_model_name = self.travel_agent.chat_model.model_name
+        current_model_name = self.travel_agent.chat_model_name
+
         if ("gpt" in current_model_name and "gpt" not in new_model_name) or (
-            "bison" in current_model_name and "bison" not in new_model_name
+            "bison" in current_model_name and "bison" not in new_model_name) or (
+            "gemini" in current_model_name and "gemini" not in new_model_name) or (
+            "ollama" in current_model_name and "ollama" not in new_model_name
         ):
             # change the model family
+            self.logger.info(
+                "Change the model family: from {} to {}".format(current_model_name, new_model_name)
+            )
             self.travel_agent.update_model_family(new_model_name)
         elif current_model_name != new_model_name:
+            self.logger.info(
+                "Change the model family"
+            )
             self.travel_agent.chat_model.model_name = new_model_name
 
     def generate_without_leafmap(self, query, model_name):

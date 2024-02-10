@@ -14,7 +14,7 @@ class TestAgentMethods(unittest.TestCase):
 
         self.agent = Agent(
             open_ai_api_key=secrets["OPENAI_API_KEY"],
-            google_palm_api_key=secrets["GOOGLE_PALM_API_KEY"],
+            google_ai_api_key=secrets["GOOGLE_PALM_API_KEY"],
             debug=True,
         )
 

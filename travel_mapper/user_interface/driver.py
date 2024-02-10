@@ -27,7 +27,7 @@ def main():
     travel_mapper = TravelMapperForUI(
         openai_api_key=secrets["OPENAI_API_KEY"],
         google_maps_key=secrets["GOOGLE_MAPS_API_KEY"],
-        google_palm_api_key=secrets["GOOGLE_PALM_API_KEY"],
+        google_ai_api_key=secrets["GOOGLE_AI_API_KEY"],
     )
     sys.stdout = PrintLogCapture("output.log")
 
@@ -35,6 +35,12 @@ def main():
     app = gr.Blocks()
 
     generic_map = generate_generic_leafmap()
+    def echo_login_user_connection(request: gr.Request):
+        if request:
+            print("Request headers dictionary:", request.headers)
+            print("IP address:", request.client.host)
+            print("Query parameters:", dict(request.query_params))
+        return
 
     with app:
         gr.Markdown("## Generate travel suggestions")
@@ -48,7 +54,7 @@ def main():
 
                         radio_map = gr.Radio(
                             value="gpt-3.5-turbo",
-                            choices=["gpt-3.5-turbo", "gpt-4", "models/text-bison-001"],
+                            choices=["gpt-3.5-turbo", "gpt-4", "models/text-bison-001", "gemini-pro", "ollama-mistral"],
                             label="models",
                         )
 
@@ -58,6 +64,7 @@ def main():
                         # ideally we want to print logs to the app too
                         # logs = gr.Textbox(label="Logs")
                         # app.load(read_logs, None, logs, every=1)
+                        app.load(echo_login_user_connection, inputs=None) #
                     with gr.Column():
                         # place where the map will appear
                         map_output = gr.HTML(generic_map, label="Travel map")
@@ -77,7 +84,7 @@ def main():
 
                         radio_no_map = gr.Radio(
                             value="gpt-3.5-turbo",
-                            choices=["gpt-3.5-turbo", "gpt-4", "models/text-bison-001"],
+                            choices=["gpt-3.5-turbo", "gpt-4", "models/text-bison-001", "gemini-pro", "ollama-mistral"],
                             label="Model choices",
                         )
 
@@ -92,6 +99,7 @@ def main():
                         )
                 text_button = gr.Button("Generate")
 
+        # Acciones que se disparan al presionar botón de GENERATE (con o sin mapa)
         map_button.click(
             travel_mapper.generate_with_leafmap,
             inputs=[text_input_map, radio_map],
@@ -104,7 +112,8 @@ def main():
         )
 
     app.launch()
-
+    # Para usar con autentificación
+    #app.launch(auth = ("test", "test"), auth_message="Bienvenidos al planificar de viajes", share=True)
 
 if __name__ == "__main__":
     main()

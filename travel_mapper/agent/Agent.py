@@ -1,5 +1,5 @@
 from langchain.chains import LLMChain, SequentialChain
-from langchain.chat_models import ChatOpenAI
+
 from langchain.llms import GooglePalm
 from travel_mapper.agent.templates import (
     ValidationTemplate,
@@ -11,6 +11,13 @@ import openai
 import logging
 import time
 
+###
+#from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.llms import Ollama
+from langchain_community.chat_models import ChatOllama
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -18,7 +25,7 @@ class Agent(object):
     def __init__(
         self,
         open_ai_api_key,
-        google_palm_api_key,
+        google_ai_api_key,
         model=MODEL_NAME,
         temperature=TEMPERATURE,
         debug=True,
@@ -28,19 +35,54 @@ class Agent(object):
 
         if "gpt" in model:
             # model is open ai
-            self.logger.info("Base LLM is OpenAI chatGPT series")
-            openai.api_key = open_ai_api_key
-            self.chat_model = ChatOpenAI(model=model, temperature=temperature)
-        elif "bison-001" in model:
+            # self.logger.info("Base LLM is OpenAI chatGPT series")
+            self.logger.info(
+                "Base LLM is OpenAI chatGPT series: {}".format(model)
+            )
+            # openai.api_key = open_ai_api_key
+            self.chat_model = ChatOpenAI(
+                model_name=model,
+                temperature=temperature,
+                openai_api_key=open_ai_api_key
+            )
+            self.chat_model_name = self.chat_model.model_name
+        elif "bison" in model:
             # model is google palm
-            self.logger.info("Base LLM is Google Palm")
+            # self.logger.info("Base LLM is Google Palm")
+            self.logger.info(
+                "Base LLM is Google Palm: {}".format(model)
+            )
             self.chat_model = GooglePalm(
                 model_name=model,
                 temperature=temperature,
-                google_api_key=google_palm_api_key,
+                google_api_key=google_ai_api_key
             )
+            self.chat_model_name = self.chat_model.model_name
+        elif "gemini" in model:
+            # model is google gemini
+            # self.logger.info("Base LLM is Google Palm")
+            self.logger.info(
+                "Base LLM is Google Gemini: {}".format(model)
+            )
+            self.chat_model = ChatGoogleGenerativeAI(
+                model="gemini-pro",
+                temperature=temperature,
+                google_api_key=google_ai_api_key
+            )
+            self.chat_model_name = self.chat_model.model
+        elif "ollama" in model:
+            # model is running locally with Ollama
+            model = model.replace("ollama-", "")
+            self.logger.info(
+                "Base LLM running locally with Ollama: {}".format(model)
+            )
+            self.chat_model = ChatOllama(
+                model=model,
+                temperature=temperature
+            )
+            self.chat_model_name = "ollama-" + self.chat_model.model
 
-        self._palm_key = google_palm_api_key
+        self._googleai_key = google_ai_api_key
         self._openai_key = open_ai_api_key
 
         self.validation_prompt = ValidationTemplate()
@@ -65,15 +107,46 @@ class Agent(object):
         if "gpt" in new_model:
             # model is open ai
             self.logger.info("Base LLM is OpenAI chatGPT series")
-            self.chat_model = ChatOpenAI(model=new_model, temperature=TEMPERATURE)
-        elif "bison-001" in new_model:
+            self.chat_model = ChatOpenAI(
+                model_name=new_model,
+                temperature=TEMPERATURE,
+                openai_api_key=self._openai_key
+            )
+            self.chat_model_name = self.chat_model.model_name
+        elif "bison" in new_model:
             # model is google palm
             self.logger.info("Base LLM is Google Palm")
             self.chat_model = GooglePalm(
                 model_name=new_model,
                 temperature=TEMPERATURE,
-                google_api_key=self._palm_key,
+                google_api_key=self._googleai_key
             )
+            self.chat_model_name = self.chat_model.model_name
+        elif "gemini" in new_model:
+            # model is google gemini
+            # self.logger.info("Base LLM is Google Palm")
+            self.logger.info(
+                "Base LLM is Google Gemini: {}".format(new_model)
+            )
+            self.chat_model = ChatGoogleGenerativeAI(
+                model="gemini-pro",
+                temperature=TEMPERATURE,
+                google_api_key=self._googleai_key
+            )
+            self.chat_model_name = self.chat_model.model
+        elif "ollama" in new_model:
+            model = new_model.replace("ollama-", "")
+            self.logger.info(
+                "Base LLM running locally with Ollama: {}".format(model)
+            )
+            self.chat_model = Ollama(
+                model=model,
+                temperature=TEMPERATURE
+            )
+            self.chat_model_name = "ollama-" + self.chat_model.model
+
+        self.validation_chain = self._set_up_validation_chain(debug=True)
+        self.agent_chain = self._set_up_agent_chain(debug=True)
 
     def _set_up_validation_chain(self, debug=True):
         """
@@ -153,7 +226,8 @@ class Agent(object):
         t1 = time.time()
         self.logger.info(
             "Calling validation (model is {}) on user input".format(
-                self.chat_model.model_name
+                #self.chat_model.model_name
+                self.chat_model_name
             )
         )
         validation_result = self.validation_chain(
@@ -181,7 +255,8 @@ class Agent(object):
 
             self.logger.info(
                 "User request is valid, calling agent (model is {})".format(
-                    self.chat_model.model_name
+                    #self.chat_model.model_name
+                    self.chat_model_name
                 )
             )
 
